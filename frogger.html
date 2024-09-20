@@ -33,19 +33,54 @@
       color: 'green'
     };
 
+    // Empty grid initially
+    let grid = [];
+
     let moveCooldown = false; // Cooldown flag for movement
-    const cooldownTime = 300; // Cooldown time in milliseconds
+    const cooldownTime = 200; // Cooldown time in milliseconds
+    const obstacleCount = 15; // Number of obstacles to randomly place
+
+    // Randomize obstacle positions on the grid
+    function initializeGrid() {
+      // Create an empty grid (0 means empty)
+      grid = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+      // Place obstacles randomly
+      let obstaclesPlaced = 0;
+      while (obstaclesPlaced < obstacleCount) {
+        let randomX = Math.floor(Math.random() * cols);
+        let randomY = Math.floor(Math.random() * rows);
+
+        // Make sure the obstacle isn't placed on the player's start position or another obstacle
+        if (grid[randomY][randomX] === 0 && !(randomX === player.x && randomY === player.y)) {
+          grid[randomY][randomX] = 1;
+          obstaclesPlaced++;
+        }
+      }
+    }
 
     // Draw the grid and the player
     function drawGrid() {
       // Clear the canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw the grid
+      // Draw the grid and obstacles
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
+          // Draw the grid square
           ctx.strokeStyle = '#ccc';
           ctx.strokeRect(col * gridSize, row * gridSize, gridSize, gridSize);
+
+          // Draw obstacles
+          if (grid[row][col] === 1) {
+            ctx.fillStyle = 'brown'; // Obstacle color
+            ctx.fillRect(
+              col * gridSize + 5,
+              row * gridSize + 5,
+              gridSize - 10,
+              gridSize - 10
+            );
+          }
         }
       }
 
@@ -59,23 +94,46 @@
       );
     }
 
+    // Check if the next move is valid (i.e., not hitting an obstacle)
+    function isValidMove(nextX, nextY) {
+      // Check if the player is moving out of bounds
+      if (nextX < 0 || nextX >= cols || nextY < 0 || nextY >= rows) {
+        return false;
+      }
+      // Check if the next position contains an obstacle
+      if (grid[nextY][nextX] === 1) {
+        return false;
+      }
+      return true;
+    }
+
     // Handle keyboard input
     function handleMovement(event) {
       if (moveCooldown) return; // Prevent movement if cooldown is active
 
+      let nextX = player.x;
+      let nextY = player.y;
+
+      // Determine the next position based on the key press
       switch (event.key) {
         case 'ArrowUp':
-          if (player.y > 0) player.y -= 1;
+          nextY -= 1;
           break;
         case 'ArrowDown':
-          if (player.y < rows - 1) player.y += 1;
+          nextY += 1;
           break;
         case 'ArrowLeft':
-          if (player.x > 0) player.x -= 1;
+          nextX -= 1;
           break;
         case 'ArrowRight':
-          if (player.x < cols - 1) player.x += 1;
+          nextX += 1;
           break;
+      }
+
+      // If the move is valid (not blocked by obstacles), update the player position
+      if (isValidMove(nextX, nextY)) {
+        player.x = nextX;
+        player.y = nextY;
       }
 
       drawGrid(); // Redraw after movement
@@ -90,11 +148,17 @@
       }, cooldownTime);
     }
 
-    // Initial drawing of the grid and player
-    drawGrid();
+    // Initialize the game with random obstacles
+    function startGame() {
+      initializeGrid();  // Generate a new randomized grid
+      drawGrid();        // Draw the grid with obstacles and the player
+    }
 
     // Add event listener for keyboard input
     document.addEventListener('keydown', handleMovement);
+
+    // Start the game when the page loads
+    startGame();
 
   </script>
 </body>
