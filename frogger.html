@@ -1,7 +1,101 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Frogger The Game</title>
-  </head>
-  
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frogger Grid Movement</title>
+  <style>
+    canvas {
+      background-color: #add8e6;
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Grid size
+    const gridSize = 40;
+    const rows = canvas.height / gridSize;
+    const cols = canvas.width / gridSize;
+
+    // Player (Frog) sprite settings
+    let player = {
+      x: 5, // Column (grid position)
+      y: 9, // Row (grid position)
+      width: gridSize - 10, // slightly smaller than grid size
+      height: gridSize - 10,
+      color: 'green'
+    };
+
+    let moveCooldown = false; // Cooldown flag for movement
+    const cooldownTime = 300; // Cooldown time in milliseconds
+
+    // Draw the grid and the player
+    function drawGrid() {
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw the grid
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          ctx.strokeStyle = '#ccc';
+          ctx.strokeRect(col * gridSize, row * gridSize, gridSize, gridSize);
+        }
+      }
+
+      // Draw the player (Frog)
+      ctx.fillStyle = player.color;
+      ctx.fillRect(
+        player.x * gridSize + 5, // Adjusted for slight padding
+        player.y * gridSize + 5, // Adjusted for slight padding
+        player.width,
+        player.height
+      );
+    }
+
+    // Handle keyboard input
+    function handleMovement(event) {
+      if (moveCooldown) return; // Prevent movement if cooldown is active
+
+      switch (event.key) {
+        case 'ArrowUp':
+          if (player.y > 0) player.y -= 1;
+          break;
+        case 'ArrowDown':
+          if (player.y < rows - 1) player.y += 1;
+          break;
+        case 'ArrowLeft':
+          if (player.x > 0) player.x -= 1;
+          break;
+        case 'ArrowRight':
+          if (player.x < cols - 1) player.x += 1;
+          break;
+      }
+
+      drawGrid(); // Redraw after movement
+      activateCooldown(); // Start cooldown after move
+    }
+
+    // Activate a cooldown after a movement
+    function activateCooldown() {
+      moveCooldown = true;
+      setTimeout(() => {
+        moveCooldown = false;
+      }, cooldownTime);
+    }
+
+    // Initial drawing of the grid and player
+    drawGrid();
+
+    // Add event listener for keyboard input
+    document.addEventListener('keydown', handleMovement);
+
+  </script>
+</body>
 </html>
