@@ -3,17 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Frogger Grid Movement</title>
+  <title>Frogger with Accessible Portal</title>
   <style>
     canvas {
       background-color: #add8e6;
       display: block;
       margin: 0 auto;
     }
+    .score {
+      text-align: center;
+      font-size: 24px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="400"></canvas>
+  <div class="score">Score: <span id="score">0</span></div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
@@ -33,12 +39,24 @@
       color: 'green'
     };
 
+    // Moving entity (enemy or object) settings
+    let entity = null; // Placeholder for entity object
+    let portal = null; // Placeholder for portal
+
     // Empty grid initially
     let grid = [];
 
     let moveCooldown = false; // Cooldown flag for movement
     const cooldownTime = 200; // Cooldown time in milliseconds
-    const obstacleCount = 15; // Number of obstacles to randomly place
+    let obstacleCount = 10; // Number of obstacles to randomly place, increases over time
+    const entityMoveInterval = 2000; // Entity moves every 2 seconds
+    let entityMoveTimer = null; // To store the interval for moving the entity
+    let score = 0; // Player's score
+
+    // Update the displayed score
+    function updateScoreDisplay() {
+      document.getElementById('score').textContent = score;
+    }
 
     // Randomize obstacle positions on the grid
     function initializeGrid() {
@@ -57,23 +75,188 @@
           obstaclesPlaced++;
         }
       }
+
+      // Randomly spawn the portal ensuring it is accessible
+      spawnPortal();
+
+      // Randomly spawn the entity with a 50% chance
+      if (Math.random() > 0.5) {
+        spawnEntity();
+      } else {
+        entity = null;
+        clearInterval(entityMoveTimer); // Clear the timer if no entity is spawned
+      }
     }
 
-    // Draw the grid and the player
-    function drawGrid() {
-      // Clear the canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Function to spawn the green portal
+    function spawnPortal() {
+      let portalPlaced = false;
+      while (!portalPlaced) {
+        let randomX = Math.floor(Math.random() * cols);
+        let randomY = Math.floor(Math.random() * rows);
 
-      // Draw the grid and obstacles
+        // Check if portal can be placed in an empty spot
+        if (grid[randomY][randomX] === 0 && !(randomX === player.x && randomY === player.y)) {
+          // Use BFS to check if there's a path from player to portal
+          if (isPathAvailable(player.x, player.y, randomX, randomY)) {
+            portal = {
+              x: randomX,
+              y: randomY,
+              width: gridSize - 10,
+              height: gridSize - 10,
+              color: 'green'
+            };
+            portalPlaced = true;
+          }
+        }
+      }
+    }
+
+    // BFS to ensure there is a path between two points
+    function isPathAvailable(startX, startY, endX, endY) {
+      let visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+      let queue = [{ x: startX, y: startY }];
+      visited[startY][startX] = true;
+
+      const directions = [
+        { dx: 0, dy: -1 }, // Up
+        { dx: 0, dy: 1 },  // Down
+        { dx: -1, dy: 0 }, // Left
+        { dx: 1, dy: 0 }   // Right
+      ];
+
+      while (queue.length > 0) {
+        let current = queue.shift();
+
+        // If we reached the end position (portal), return true
+        if (current.x === endX && current.y === endY) {
+          return true;
+        }
+
+        // Explore neighbors
+        for (let dir of directions) {
+          let nextX = current.x + dir.dx;
+          let nextY = current.y + dir.dy;
+
+          if (nextX >= 0 && nextX < cols && nextY >= 0 && nextY < rows && !visited[nextY][nextX] && grid[nextY][nextX] === 0) {
+            visited[nextY][nextX] = true;
+            queue.push({ x: nextX, y: nextY });
+          }
+        }
+      }
+
+      // No path found
+      return false;
+    }
+
+    // Function to spawn the moving entity
+    function spawnEntity() {
+      let entityPlaced = false;
+      while (!entityPlaced) {
+        let randomX = Math.floor(Math.random() * cols);
+        let randomY = Math.floor(Math.random() * rows);
+
+        // Place the entity in an empty spot (not on player and no obstacles)
+        if (grid[randomY][randomX] === 0 && !(randomX === player.x && randomY === player.y)) {
+          entity = {
+            x: randomX,
+            y: randomY,
+            width: gridSize - 10,
+            height: gridSize - 10,
+            color: 'red'
+          };
+          entityPlaced = true;
+        }
+      }
+
+      // Start moving the entity every 2 seconds at constant speed
+      if (entityMoveTimer) clearInterval(entityMoveTimer); // Clear existing interval
+      entityMoveTimer = setInterval(chasePlayer, entityMoveInterval);
+    }
+
+    // Function to move the entity towards the player
+    function chasePlayer() {
+      if (!entity) return; // No entity, no movement
+
+      let dx = player.x - entity.x;
+      let dy = player.y - entity.y;
+
+      let nextX = entity.x;
+      let nextY = entity.y;
+
+      // Move horizontally or vertically towards the player
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Move horizontally if horizontal distance is greater
+        nextX = entity.x + Math.sign(dx);
+        if (!isValidMove(nextX, nextY)) {
+          // If moving horizontally hits an obstacle, try to hop over
+          let hopX = nextX + Math.sign(dx); // Attempt to hop over
+          if (isValidMove(hopX, nextY)) {
+            nextX = hopX; // Successfully hopped over obstacle
+          }
+        }
+      } else {
+        // Move vertically otherwise
+        nextY = entity.y + Math.sign(dy);
+        if (!isValidMove(nextX, nextY)) {
+          // If moving vertically hits an obstacle, try to hop over
+          let hopY = nextY + Math.sign(dy); // Attempt to hop over
+          if (isValidMove(nextX, hopY)) {
+            nextY = hopY; // Successfully hopped over obstacle
+          }
+        }
+      }
+
+      // Check if the move is valid (within bounds and not an obstacle)
+      if (isValidMove(nextX, nextY)) {
+        entity.x = nextX;
+        entity.y = nextY;
+      }
+
+      drawGrid(); // Redraw grid after entity moves
+      checkCollision(); // Check for collisions after movement
+    }
+
+    // Function to check if player collides with the entity or portal
+    function checkCollision() {
+      // Check if player collides with the entity (game reset and score reset)
+      if (entity && player.x === entity.x && player.y === entity.y) {
+        resetGame(true); // Pass true to reset score
+      }
+
+      // Check if player reaches the portal (level reset with point and more obstacles)
+      if (portal && player.x === portal.x && player.y === portal.y) {
+        score++;
+        obstacleCount += 2; // Increase obstacles by 2
+        resetGame(false); // Just reset the game
+      }
+    }
+
+    // Reset the game by reinitializing everything
+    function resetGame(resetScore) {
+      player.x = 5;
+      player.y = 9;
+      if (resetScore) {
+        score = 0; // Reset score if collided with entity
+      }
+      initializeGrid(); // Reinitialize grid with new obstacles and portal
+      drawGrid(); // Redraw the grid
+      updateScoreDisplay(); // Update score display
+    }
+
+    // Function to draw the grid, player, portal, and entity
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+
+      // Draw the grid
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          // Draw the grid square
-          ctx.strokeStyle = '#ccc';
+          ctx.strokeStyle = 'black';
           ctx.strokeRect(col * gridSize, row * gridSize, gridSize, gridSize);
 
-          // Draw obstacles
+          // Draw obstacle if present
           if (grid[row][col] === 1) {
-            ctx.fillStyle = 'brown'; // Obstacle color
+            ctx.fillStyle = 'gray';
             ctx.fillRect(
               col * gridSize + 5,
               row * gridSize + 5,
@@ -87,16 +270,38 @@
       // Draw the player (Frog)
       ctx.fillStyle = player.color;
       ctx.fillRect(
-        player.x * gridSize + 5, // Adjusted for slight padding
-        player.y * gridSize + 5, // Adjusted for slight padding
+        player.x * gridSize + 5,
+        player.y * gridSize + 5,
         player.width,
         player.height
       );
+
+      // Draw the portal
+      if (portal) {
+        ctx.fillStyle = portal.color;
+        ctx.fillRect(
+          portal.x * gridSize + 5,
+          portal.y * gridSize + 5,
+          portal.width,
+          portal.height
+        );
+      }
+
+      // Draw the entity (if it exists)
+      if (entity) {
+        ctx.fillStyle = entity.color;
+        ctx.fillRect(
+          entity.x * gridSize + 5,
+          entity.y * gridSize + 5,
+          entity.width,
+          entity.height
+        );
+      }
     }
 
     // Check if the next move is valid (i.e., not hitting an obstacle)
     function isValidMove(nextX, nextY) {
-      // Check if the player is moving out of bounds
+      // Check if the player or entity is moving out of bounds
       if (nextX < 0 || nextX >= cols || nextY < 0 || nextY >= rows) {
         return false;
       }
@@ -138,6 +343,7 @@
 
       drawGrid(); // Redraw after movement
       activateCooldown(); // Start cooldown after move
+      checkCollision(); // Check if player collided with entity or portal
     }
 
     // Activate a cooldown after a movement
@@ -148,10 +354,11 @@
       }, cooldownTime);
     }
 
-    // Initialize the game with random obstacles
+    // Initialize the game with random obstacles, portal, and potentially an entity
     function startGame() {
       initializeGrid();  // Generate a new randomized grid
-      drawGrid();        // Draw the grid with obstacles and the player
+      drawGrid();        // Draw the grid with obstacles, portal, and the player
+      updateScoreDisplay(); // Display initial score
     }
 
     // Add event listener for keyboard input
