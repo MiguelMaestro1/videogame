@@ -48,7 +48,7 @@
 
     let moveCooldown = false; // Cooldown flag for movement
     const cooldownTime = 250; // Cooldown time in milliseconds
-    let obstacleCount = 10; // Number of obstacles to randomly place, increases over time
+    let obstacleCount = 25; // Number of obstacles to randomly place, increases over time
     const entityMoveInterval = 1000; // Entity moves every 2 seconds
     let entityMoveTimer = null; // To store the interval for moving the entity
     let score = 0; // Player's score
@@ -70,7 +70,9 @@
         let randomY = Math.floor(Math.random() * rows);
 
         // Make sure the obstacle isn't placed on the player's start position or another obstacle
-        if (grid[randomY][randomX] === 0 && !(randomX === player.x && randomY === player.y)) {
+        if (grid[randomY][randomX] === 0 &&
+          !(randomX === player.x && randomY === player.y) &&
+          isNeighbourAvailable()) {
           grid[randomY][randomX] = 1;
           obstaclesPlaced++;
         }
@@ -111,6 +113,32 @@
         }
       }
     }
+
+
+    
+
+    function isNeighbourAvailable() {
+
+      const directions = [
+        { dx: 0, dy: -1 }, // Up
+        { dx: 0, dy: 1 },  // Down
+        { dx: -1, dy: 0 }, // Left
+        { dx: 1, dy: 0 }   // Right
+      ];
+
+      // Explore neighbors
+      for (let dir of directions) {
+        let nX = player.x + dir.dx;
+        let nY = player.y + dir.dy;
+
+        if (nX >= 0 && nX < cols &&
+        nY >= 0 && nY < rows && grid[nY][nX] === 0) {
+          return true;
+        }
+      }
+      return false;
+    }
+    
 
     // BFS to ensure there is a path between two points
     function isPathAvailable(startX, startY, endX, endY) {
@@ -227,7 +255,9 @@
       // Check if player reaches the portal (level reset with point and more obstacles)
       if (portal && player.x === portal.x && player.y === portal.y) {
         score++;
-        obstacleCount += 2; // Increase obstacles by 2
+        if (obstacleCount < 50) {
+          obstacleCount += 2; // Increase obstacles by 2
+        }
         resetGame(false); // Just reset the game
       }
     }
